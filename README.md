@@ -1,4 +1,4 @@
-# agrarian-deployment-dashboard
+# Agrarian Deployment Dashboard
 
 A web-based dashboard for deploying and managing applications on Kubernetes clusters. This service provides a user-friendly interface for discovering applications from container registries and deploying them to your cluster.
 
@@ -62,5 +62,4 @@ The dashboard requires:
 ## License
 
 Part of the Agrarian Ecosystem project.
-
 

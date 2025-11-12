@@ -1,0 +1,1442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AGRARIAN Deployment Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link rel="icon" type="image/png" href="/static/logo_png.png">
+<style>
+  :root{
+    --bg:#ffffff;
+    --card:#f8fafc;
+    --muted:#64748b;
+    --text:#1e293b;
+    --accent:#00BF63;
+    --ok:#22c55e;
+    --err:#ef4444;
+    --warn:#f59e0b;
+    --line:#e2e8f0;
+    --gradient:linear-gradient(135deg, #00BF63 0%, #086043 100%);
+    --glass:rgba(0,191,99,0.1);
+    --shadow:0 8px 32px rgba(0,0,0,0.1);
+    --deploy-gradient:linear-gradient(135deg, #00BF63 0%, #086043 100%);
+  }
+  
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow-x:hidden}
+  
+  body{
+    font:14px/1.6 'Inter', system-ui, -apple-system, sans-serif;
+    color:var(--text);
+    background:var(--bg);
+    background-image:
+      radial-gradient(circle at 20% 80%, rgba(0,191,99,0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(8,96,67,0.1) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(0,191,99,0.05) 0%, transparent 50%);
+    min-height:100vh;
+  }
+  
+  /* Glassmorphism Header */
+  .header{
+    background:var(--glass);
+    backdrop-filter:blur(20px);
+    border-bottom:1px solid rgba(255,255,255,0.1);
+    padding:1rem 2rem;
+    position:sticky;
+    top:0;
+    z-index:100;
+    box-shadow:var(--shadow);
+  }
+  
+  .header-content{
+    max-width:1400px;
+    margin:0 auto;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap: 2rem;
+    position: relative;
+  }
+  
+  .header-content .logo {
+    position: absolute;
+    left: 0;
+  }
+  
+  .header-content .status-indicator {
+    position: absolute;
+    right: 0;
+  }
+  
+  .logo{
+    display:flex;
+    align-items:center;
+    gap:0.75rem;
+    font-size:1.5rem;
+    font-weight:700;
+    background:var(--deploy-gradient);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+  
+  .logo i{
+    font-size:1.8rem;
+    color:#00BF63;
+  }
+  
+  /* Tab Navigation */
+  .tab-navigation{
+    display:flex;
+    gap:0.5rem;
+    background:rgba(255,255,255,0.05);
+    padding:0.5rem;
+    border-radius:1rem;
+    backdrop-filter:blur(10px);
+  }
+  
+  .tab-button{
+    background:none;
+    border:none;
+    color:var(--muted);
+    padding:0.75rem 1.5rem;
+    border-radius:0.5rem;
+    cursor:pointer;
+    transition:all 0.3s ease;
+    font-size:0.9rem;
+    font-weight:500;
+    display:flex;
+    align-items:center;
+    gap:0.5rem;
+  }
+  
+  .tab-button:hover{
+    color:var(--text);
+    background:rgba(255,255,255,0.1);
+  }
+  
+  .tab-button.active{
+    background:var(--accent);
+    color:white;
+    box-shadow:0 4px 12px rgba(76,195,255,0.3);
+  }
+  
+  .status-indicator{
+    display:flex;
+    align-items:center;
+    gap:0.5rem;
+    padding:0.5rem 1rem;
+    background:rgba(255,255,255,0.1);
+    border-radius:2rem;
+    backdrop-filter:blur(10px);
+  }
+  
+  .status-dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--ok);
+    animation:pulse 2s infinite;
+  }
+  
+  @keyframes pulse{
+    0%,100%{opacity:1}
+    50%{opacity:0.5}
+  }
+  
+  /* Main Content */
+  .container{
+    max-width:1400px;
+    margin:0 auto;
+    padding:2rem;
+  }
+  
+  /* Tab Content */
+  .tab-content{
+    display:none;
+    animation:fadeIn 0.3s ease;
+  }
+  
+  .tab-content.active{
+    display:block;
+  }
+  
+  @keyframes fadeIn{
+    from{opacity:0;transform:translateY(20px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+  
+  /* Cards */
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:1rem;
+    padding:1.5rem;
+    margin-bottom:1.5rem;
+    backdrop-filter:blur(20px);
+    box-shadow:var(--shadow);
+    transition:all 0.3s ease;
+  }
+  
+  .card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 12px 40px rgba(0,0,0,0.4);
+  }
+  
+  .card-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:1rem;
+    padding-bottom:1rem;
+    border-bottom:1px solid var(--line);
+  }
+  
+  .card-title{
+    font-size:1.2rem;
+    font-weight:600;
+    color:var(--text);
+  }
+  
+  .card-subtitle{
+    color:var(--muted);
+    font-size:0.9rem;
+  }
+  
+  /* Forms */
+  .form-group{
+    margin-bottom:1.5rem;
+  }
+  
+  .form-label{
+    display:block;
+    margin-bottom:0.5rem;
+    font-weight:500;
+    color:var(--text);
+  }
+  
+  .form-input, .form-select, .form-textarea{
+    width:100%;
+    padding:0.75rem 1rem;
+    border:1px solid var(--line);
+    border-radius:0.5rem;
+    background:rgba(255,255,255,0.8);
+    color:var(--text);
+    font-size:0.9rem;
+    transition:all 0.3s ease;
+  }
+  
+  .form-input:focus, .form-select:focus, .form-textarea:focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(0,191,99,0.1);
+  }
+  
+  .form-select option{
+    background:#ffffff;
+    color:var(--text);
+    padding:0.5rem;
+  }
+  
+  /* Buttons */
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    gap:0.5rem;
+    padding:0.75rem 1.5rem;
+    border:none;
+    border-radius:0.5rem;
+    font-size:0.9rem;
+    font-weight:500;
+    cursor:pointer;
+    transition:all 0.3s ease;
+    text-decoration:none;
+  }
+  
+  .btn-primary{
+    background:var(--accent);
+    color:white;
+  }
+  
+  .btn-primary:hover{
+    background:#3aa3d9;
+    transform:translateY(-2px);
+    box-shadow:0 8px 25px rgba(76,195,255,0.3);
+  }
+  
+  .btn-success{
+    background:var(--ok);
+    color:white;
+  }
+  
+  .btn-success:hover{
+    background:#1ea54a;
+    transform:translateY(-2px);
+  }
+  
+  .btn-danger{
+    background:var(--err);
+    color:white;
+  }
+  
+  .btn-danger:hover{
+    background:#dc2626;
+    transform:translateY(-2px);
+  }
+  
+  .btn-warning{
+    background:var(--warn);
+    color:white;
+  }
+  
+  .btn-warning:hover{
+    background:#d97706;
+    transform:translateY(-2px);
+  }
+  
+  .btn-sm{
+    padding:0.5rem 1rem;
+    font-size:0.85rem;
+  }
+  
+  /* Tables */
+  .table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:1rem;
+  }
+  
+  .table th, .table td{
+    padding:1rem;
+    text-align:left;
+    border-bottom:1px solid var(--line);
+  }
+  
+  .table th{
+    background:rgba(255,255,255,0.05);
+    font-weight:600;
+    color:var(--text);
+  }
+  
+  .table td{
+    color:var(--muted);
+  }
+  
+  .table tr:hover{
+    background:rgba(255,255,255,0.05);
+  }
+  
+  /* Status badges */
+  .status-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:0.25rem;
+    padding:0.25rem 0.75rem;
+    border-radius:1rem;
+    font-size:0.8rem;
+    font-weight:500;
+  }
+  
+  .status-ready{
+    background:rgba(34,197,94,0.2);
+    color:var(--ok);
+  }
+  
+  .status-pending{
+    background:rgba(245,158,11,0.2);
+    color:var(--warn);
+  }
+  
+  .status-failed{
+    background:rgba(239,68,68,0.2);
+    color:var(--err);
+  }
+  
+  /* Alerts */
+  .alert{
+    padding:1rem 1.5rem;
+    border-radius:0.5rem;
+    margin-bottom:1rem;
+    display:flex;
+    align-items:center;
+    gap:0.75rem;
+  }
+  
+  .alert-success{
+    background:rgba(34,197,94,0.1);
+    border:1px solid rgba(34,197,94,0.3);
+    color:var(--ok);
+  }
+  
+  .alert-warning{
+    background:rgba(245,158,11,0.1);
+    border:1px solid rgba(245,158,11,0.3);
+    color:var(--warn);
+  }
+  
+  .alert-error{
+    background:rgba(239,68,68,0.1);
+    border:1px solid rgba(239,68,68,0.3);
+    color:var(--err);
+  }
+  
+  .alert-info{
+    background:rgba(76,195,255,0.1);
+    border:1px solid rgba(76,195,255,0.3);
+    color:var(--accent);
+  }
+  
+  /* Grid Layout */
+  .grid{
+    display:grid;
+    gap:1.5rem;
+  }
+  
+  .grid-2{
+    grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+  }
+  
+  .grid-3{
+    grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));
+  }
+  
+  /* Metrics Cards */
+  .metric-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:1rem;
+    padding:1.5rem;
+    text-align:center;
+    backdrop-filter:blur(20px);
+  }
+  
+  .metric-value{
+    font-size:2rem;
+    font-weight:700;
+    color:var(--accent);
+    margin-bottom:0.5rem;
+  }
+  
+  .metric-label{
+    color:var(--muted);
+    font-size:0.9rem;
+  }
+  
+  /* Loading */
+  .loading{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:2rem;
+    color:var(--muted);
+  }
+  
+  .spinner{
+    width:20px;
+    height:20px;
+    border:2px solid var(--line);
+    border-top:2px solid var(--accent);
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+    margin-right:0.5rem;
+  }
+  
+  @keyframes spin{
+    0%{transform:rotate(0deg)}
+    100%{transform:rotate(360deg)}
+  }
+  
+  /* Application Cards - Smaller */
+  .application-card {
+    border-left: 4px solid var(--accent);
+    transition: all 0.3s ease;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .application-card:hover {
+    border-left-color: var(--ok);
+    transform: translateY(-2px);
+  }
+  
+  .application-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
+  
+  .feature-list {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+  }
+  
+  .feature-list li {
+    margin-bottom: 0.25rem;
+    color: var(--muted);
+  }
+  
+  .use-case {
+    background: rgba(76, 195, 255, 0.1);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+    border-left: 3px solid var(--accent);
+  }
+  
+  /* Deploy Form - Centered */
+  .deploy-form-container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  
+  .deploy-card {
+    border-left: 4px solid var(--accent);
+    transition: all 0.3s ease;
+  }
+  
+  .deploy-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(76,195,255,0.2);
+  }
+  
+  /* Enhanced Buttons */
+  .deploy-btn {
+    background: linear-gradient(135deg, var(--accent) 0%, #086043 100%);
+    border: none;
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 191, 99, 0.3);
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .deploy-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 191, 99, 0.4);
+    background: linear-gradient(135deg, #086043 0%, var(--accent) 100%);
+  }
+  
+  /* Testbed Filter */
+  .testbed-filter {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 0.5rem;
+  }
+  
+  /* Responsive */
+  @media (max-width:768px){
+    .container{
+      padding:1rem;
+    }
+    
+    .card {
+      padding: 1.5rem;
+    }
+    
+    .grid-2 {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    
+    .header-content{
+      flex-direction:column;
+      gap:1rem;
+    }
+    
+    .tab-navigation{
+      flex-wrap:wrap;
+    }
+    
+    .grid-2, .grid-3{
+      grid-template-columns:1fr;
+    }
+    
+    .application-actions {
+      flex-direction: column;
+    }
+  }
+</style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="logo">
+        <img src="logo_png.png" alt="Agrarian Logo" style="height: 64px; width: auto; margin-right: 0.75rem;">
+        AGRARIAN Deployment Dashboard
+      </div>
+      <nav class="tab-navigation">
+        <button class="tab-button active" data-tab="deploy">
+          <i class="fas fa-upload"></i> Deploy
+        </button>
+        <button class="tab-button" data-tab="templates">
+          <i class="fas fa-apps"></i> Applications
+        </button>
+        <button class="tab-button" data-tab="monitor">
+          <i class="fas fa-chart-line"></i> Monitor
+        </button>
+      </nav>
+      <div class="status-indicator">
+        <div class="status-dot"></div>
+        <span id="connectionStatus">Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Deploy Tab -->
+    <div id="deploy" class="tab-content active">
+      <div class="deploy-form-container">
+        <div class="card deploy-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Deploy Application</h2>
+              <p class="card-subtitle">Deploy Agrarian applications to Kubernetes</p>
+            </div>
+          </div>
+          
+          <form id="deployForm">
+            <div class="form-group">
+              <label class="form-label" for="testbed">Testbed</label>
+              <select class="form-select" id="testbed" required>
+                <option value="">Select testbed...</option>
+                <option value="testbed-1">Testbed 1</option>
+                <option value="testbed-2">Testbed 2</option>
+                <option value="testbed-3" selected>Testbed 3</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="node">Node</label>
+              <select class="form-select" id="node" required>
+                <option value="">Select node...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="template">Agrarian Applications</label>
+              <select class="form-select" id="template" required>
+                <option value="">Select Agrarian application...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="replicas">Replicas</label>
+              <input type="number" class="form-input" id="replicas" value="1" min="1" max="10">
+            </div>
+            
+            <div class="form-group">
+              <button type="submit" class="btn btn-primary deploy-btn">
+                <i class="fas fa-rocket"></i> Deploy Application
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Applications Tab -->
+    <div id="templates" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Agrarian Applications</h2>
+            <p class="card-subtitle">Browse and deploy Agrarian applications for IoT and agricultural monitoring</p>
+          </div>
+          <button class="btn btn-primary" onclick="loadTemplates()">
+            <i class="fas fa-refresh"></i> Refresh
+          </button>
+        </div>
+        
+        <div id="templatesContent">
+          <div class="loading">
+            <div class="spinner"></div>
+            Loading applications...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monitor Tab -->
+    <div id="monitor" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Pod Monitoring</h2>
+            <p class="card-subtitle">Monitor pods per testbed and node</p>
+          </div>
+          <button class="btn btn-primary" onclick="loadPodMetrics()">
+            <i class="fas fa-refresh"></i> Refresh
+          </button>
+        </div>
+        
+        <div class="testbed-filter">
+          <label class="form-label" for="monitorTestbed">Filter by Testbed:</label>
+          <select class="form-select" id="monitorTestbed" onchange="filterPodsByTestbed()">
+            <option value="all">All Testbeds</option>
+            <option value="testbed-1">Testbed 1</option>
+            <option value="testbed-2">Testbed 2</option>
+            <option value="testbed-3">Testbed 3</option>
+          </select>
+        </div>
+        <div class="testbed-filter">
+          <label class="form-label" for="monitorNode">Filter by Node:</label>
+          <select class="form-select" id="monitorNode" onchange="filterPodsByTestbed()">
+            <option value="all">All Nodes</option>
+          </select>
+        </div>
+        
+        <div class="grid grid-3" id="metricsGrid">
+          <div class="metric-card">
+            <div class="metric-value" id="readyPodsCount">-</div>
+            <div class="metric-label">Ready Pods</div>
+          </div>
+        </div>
+        
+        <div id="podMetricsContent">
+          <div class="loading">
+            <div class="spinner"></div>
+            Loading pod metrics...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert Container -->
+  <div id="alertContainer" style="position: fixed; top: 100px; right: 20px; z-index: 1000;"></div>
+
+  <script>
+    // Debug: Log script loading
+    console.log('🚀 Agrarian Deployment Dashboard script loaded');
+    console.log('📅 Current time:', new Date().toISOString());
+    console.log('🌐 Window location:', window.location.href);
+    
+    // Global variables
+    let currentTab = 'deploy';
+    let autoRefreshInterval;
+    let allPods = [];
+    let selectedTestbedForDeploy = null;
+    let selectedAppForDeploy = null;
+    let allNodesFromAPI = []; // Store nodes retrieved from API
+
+    // Initialize the application
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('📄 DOMContentLoaded event fired');
+      console.log('🔧 Starting initialization...');
+      init();
+      setupTabNavigation();
+      startAutoRefresh();
+      console.log('✅ Initial setup completed');
+    });
+
+    // Tab Navigation
+    function setupTabNavigation() {
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const tabContents = document.querySelectorAll('.tab-content');
+
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const tabName = button.getAttribute('data-tab');
+          
+          // Remove active class from all buttons and contents
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          tabContents.forEach(content => content.classList.remove('active'));
+          
+          // Add active class to clicked button and corresponding content
+          button.classList.add('active');
+          document.getElementById(tabName).classList.add('active');
+          
+          currentTab = tabName;
+          
+          // Load content for the active tab
+          loadTabContent(tabName);
+        });
+      });
+    }
+
+    // Load content for specific tab
+    function loadTabContent(tabName) {
+      switch(tabName) {
+        case 'deploy':
+          loadTemplates();
+          loadNodesForTestbed();
+          break;
+        case 'templates':
+          loadTemplates();
+          break;
+        case 'monitor':
+          loadPodMetrics();
+          break;
+      }
+    }
+
+    // API Helper - Uses agrarian-deployment-dashboard backend directly
+    async function apiCall(endpoint, options = {}) {
+      // Use the backend directly (port 8002) instead of API Gateway
+      // Remove /v1 prefix since backend uses /api prefix
+      const cleanEndpoint = endpoint.startsWith('/v1/') ? endpoint.replace('/v1/', '/api/') : endpoint;
+      const baseUrl = 'http://10.222.0.152:8002';
+      const url = `${baseUrl}${cleanEndpoint}`;
+      
+      console.log(`[API Call] Making request to: ${url}`, options);
+      
+      const defaultOptions = {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+      
+      try {
+        const response = await fetch(url, { ...defaultOptions, ...options });
+        
+        console.log(`[API Call] Response status: ${response.status} ${response.statusText}`);
+        console.log(`[API Call] Response headers:`, Object.fromEntries(response.headers.entries()));
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[API Call] Error response body:`, errorText);
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log(`[API Call] Response data:`, data);
+        
+        // Backend returns data directly (not wrapped in {success, data, meta})
+        // But handle both formats for compatibility
+        const result = data.success ? data.data : data;
+        console.log(`[API Call] Returning:`, result);
+        return result;
+      } catch (error) {
+        console.error(`[API Call] Exception caught:`, error);
+        throw error;
+      }
+    }
+
+    // Initialize application
+    async function init() {
+      console.log('[init] Initializing application...');
+      try {
+        console.log('[init] Loading templates...');
+        await loadTemplates();
+        console.log('[init] Loading nodes for testbed...');
+        loadNodesForTestbed();
+        console.log('[init] Updating connection status to connected');
+        updateConnectionStatus(true);
+        console.log('[init] Initialization completed successfully');
+      } catch (error) {
+        console.error('[init] Initialization error:', error);
+        console.error('[init] Error stack:', error.stack);
+        updateConnectionStatus(false);
+        showAlert('Failed to initialize application', 'error');
+      }
+    }
+
+    // Load nodes based on selected testbed
+    async function loadNodesForTestbed() {
+      const testbed = document.getElementById('testbed').value;
+      const nodeSelect = document.getElementById('node');
+      
+      nodeSelect.innerHTML = '<option value="">Select node...</option>';
+      
+      if (!testbed) {
+        return;
+      }
+      
+      try {
+        // Get all nodes from API Gateway
+        const allNodes = await apiCall('/v1/nodes');
+        allNodesFromAPI = allNodes; // Store for later use
+        const nodeNames = allNodes.map(n => n.name || n);
+        
+        // For testbed 3, show all nodes (all current nodes belong to testbed 3)
+        // For other testbeds, show empty (no nodes assigned yet)
+        if (testbed === 'testbed-3') {
+          // Show all nodes for testbed 3
+          nodeNames.forEach(nodeName => {
+            const option = document.createElement('option');
+            option.value = nodeName;
+            option.textContent = nodeName;
+            nodeSelect.appendChild(option);
+          });
+        } else {
+          // For testbed 1 and 2, no nodes assigned yet
+          const option = document.createElement('option');
+          option.value = "";
+          option.textContent = "No nodes available for this testbed";
+          option.disabled = true;
+          nodeSelect.appendChild(option);
+        }
+      } catch (error) {
+        console.error('Error loading nodes from API Gateway:', error);
+        showAlert('Failed to load nodes from cluster', 'error');
+        // Show error option
+        const option = document.createElement('option');
+        option.value = "";
+        option.textContent = "Error loading nodes";
+        option.disabled = true;
+        nodeSelect.appendChild(option);
+      }
+    }
+
+    // Load templates
+    async function loadTemplates() {
+      console.log('[loadTemplates] Starting to load applications...');
+      try {
+        console.log('[loadTemplates] Calling API endpoint: /v1/applications');
+        const response = await apiCall('/v1/applications?v=' + Date.now());
+        console.log('[loadTemplates] API response received:', response);
+        
+        const agrarianApps = response || [];
+        console.log(`[loadTemplates] Found ${agrarianApps.length} applications:`, agrarianApps);
+        
+        const select = document.getElementById('template');
+        console.log('[loadTemplates] Select element:', select);
+        
+        if (select) {
+          select.innerHTML = '<option value="">Select Agrarian application...</option>';
+          console.log(`[loadTemplates] Adding ${agrarianApps.length} options to select dropdown`);
+          
+          agrarianApps.forEach((app, index) => {
+            console.log(`[loadTemplates] Adding app ${index + 1}/${agrarianApps.length}:`, app);
+            const option = document.createElement('option');
+            option.value = app.name;
+            option.textContent = app.name;
+            option.title = `${app.description} - Registry: ${app.registry || 'ghcr.io'}`;
+            select.appendChild(option);
+          });
+          
+          console.log(`[loadTemplates] Successfully populated dropdown with ${agrarianApps.length} applications`);
+        } else {
+          console.error('[loadTemplates] Select element not found!');
+        }
+        
+        // Update templates tab content
+        if (currentTab === 'templates') {
+          console.log('[loadTemplates] Updating templates tab display');
+          displayTemplates(agrarianApps);
+        }
+        
+        // If app was pre-selected, set it
+        if (selectedAppForDeploy) {
+          console.log('[loadTemplates] Setting pre-selected app:', selectedAppForDeploy);
+          select.value = selectedAppForDeploy;
+          selectedAppForDeploy = null;
+        }
+        
+        console.log('[loadTemplates] Completed successfully');
+      } catch (error) {
+        console.error('[loadTemplates] Error loading Agrarian applications:', error);
+        console.error('[loadTemplates] Error stack:', error.stack);
+        showAlert('Failed to load Agrarian applications', 'warning');
+      }
+    }
+
+    // Display applications in applications tab
+    function displayTemplates(templates) {
+      const content = document.getElementById('templatesContent');
+      if (!content) return;
+      
+      if (templates.length === 0) {
+        content.innerHTML = '<div class="alert alert-warning">No applications available</div>';
+        return;
+      }
+
+      const applicationCards = templates.map(template => {
+        return `
+          <div class="card application-card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">
+                  <i class="fas fa-cog"></i> ${template.name}
+                </h3>
+                <p class="card-subtitle">${template.description || 'Agrarian application'}</p>
+              </div>
+              <span class="status-badge status-ready">Available</span>
+            </div>
+            
+            <div class="grid grid-2">
+              <div>
+                <p><strong>Testbed:</strong> ${template.testbed || 'Unknown'}</p>
+                <p><strong>Use case:</strong> ${template.usecase || 'Unknown'}</p>
+              </div>
+              <div>
+                <p><strong>Developer:</strong> ${template.developer || 'Unknown'}</p>
+              </div>
+            </div>
+            
+            <div class="application-actions">
+              <button class="btn btn-primary" onclick="selectApplicationForDeploy('${template.name}')">
+                <i class="fas fa-rocket"></i> Deploy Application
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      content.innerHTML = applicationCards;
+    }
+
+    // Load pod metrics
+    async function loadPodMetrics() {
+      try {
+        // Get pods from API Gateway (only default namespace)
+        const pods = await apiCall('/v1/pods?namespace=default');
+        allPods = Array.isArray(pods) ? pods : [];
+        
+        // Get nodes from API Gateway to filter by testbed
+        const nodes = await apiCall('/v1/nodes');
+        allNodesFromAPI = Array.isArray(nodes) ? nodes : [];
+        const allNodeNames = allNodesFromAPI.map(n => n.name || n).filter(Boolean);
+        
+        // Filter pods by testbed if selected
+        const monitorTestbedSelect = document.getElementById('monitorTestbed');
+        const selectedTestbed = monitorTestbedSelect ? monitorTestbedSelect.value : '';
+        let filteredPods = allPods;
+        
+        if (selectedTestbed && selectedTestbed !== 'all') {
+          // For testbed 3, show pods on all nodes (all current nodes belong to testbed 3)
+          // For other testbeds, show empty (no nodes assigned yet)
+          if (selectedTestbed === 'testbed-3') {
+            // Filter pods that are on any of the nodes from API
+            filteredPods = allPods.filter(pod => {
+              return pod.node && allNodeNames.includes(pod.node);
+            });
+          } else {
+            // For testbed 1 and 2, no pods (no nodes assigned yet)
+            filteredPods = [];
+          }
+        } else {
+          // "All testbeds" selected - show all pods
+          filteredPods = allPods.filter(pod => {
+            return pod.node && allNodeNames.includes(pod.node);
+          });
+        }
+        
+        // Filter by node if selected
+        const monitorNodeSelect = document.getElementById('monitorNode');
+        if (monitorNodeSelect) {
+          const selectedNode = monitorNodeSelect.value;
+          if (selectedNode && selectedNode !== 'all' && selectedNode !== '') {
+            filteredPods = filteredPods.filter(pod => pod.node === selectedNode);
+          }
+        }
+        
+        // Count ready pods (status === 'Running')
+        const readyPods = filteredPods.filter(pod => pod.status === 'Running').length;
+        document.getElementById('readyPodsCount').textContent = readyPods;
+        
+        // Populate node filter dropdown from API
+        populateMonitorNodeFilter(allNodeNames);
+        
+        // Display pods table
+        const content = document.getElementById('podMetricsContent');
+        if (!content) return;
+        
+        if (filteredPods.length === 0) {
+          content.innerHTML = '<div class="alert alert-warning">No pods found</div>';
+          return;
+        }
+        
+        const podsTable = `
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Ready</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredPods.sort((a, b) => {
+                try {
+                  const parseDate = (ts) => {
+                    if (!ts) return new Date(0);
+                    let isoStr = ts.includes('T') ? ts : ts.replace(' ', 'T');
+                    if (!isoStr.match(/[+-]\d{2}:\d{2}$/) && !isoStr.endsWith('Z')) {
+                      isoStr += 'Z';
+                    }
+                    return new Date(isoStr);
+                  };
+                  const dateA = parseDate(a.created);
+                  const dateB = parseDate(b.created);
+                  return dateB - dateA; // Most recent first
+                } catch {
+                  return 0;
+                }
+              }).map(pod => {
+                const created = pod.created ? (() => {
+                  try {
+                    // Parse timestamp - handle both formats: "2025-11-05T10:27:35Z" (UTC) or "2025-11-05 10:27:35" (legacy)
+                    let timestampStr = pod.created;
+                    let isoStr = timestampStr;
+                    
+                    // If it doesn't have 'T', convert space to 'T'
+                    if (!timestampStr.includes('T')) {
+                      isoStr = timestampStr.replace(' ', 'T');
+                    }
+                    
+                    // If it doesn't end with 'Z' or timezone, assume UTC
+                    if (!isoStr.match(/[+-]\d{2}:\d{2}$/) && !isoStr.endsWith('Z')) {
+                      isoStr += 'Z';
+                    }
+                    
+                    const createdDate = new Date(isoStr);
+                    const now = new Date();
+                    const diffMs = now - createdDate;
+                    
+                    // Handle negative differences (future dates) or invalid dates
+                    if (isNaN(diffMs) || diffMs < 0) {
+                      return pod.created || pod.age || 'N/A';
+                    }
+                    
+                    const diffSecs = Math.floor(diffMs / 1000);
+                    const diffMins = Math.floor(diffSecs / 60);
+                    const diffHours = Math.floor(diffMins / 60);
+                    const diffDays = Math.floor(diffHours / 24);
+                    
+                    if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                    if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                    if (diffMins > 0) return `${diffMins} min ago`;
+                    if (diffSecs > 0) return `${diffSecs}s ago`;
+                    return 'just now';
+                  } catch {
+                    return pod.created || pod.age || 'N/A';
+                  }
+                })() : (pod.age || 'N/A');
+                const ready = pod.status === 'Running' ? 'Ready' : (pod.status || 'Unknown');
+                const isReady = pod.status === 'Running';
+                const podName = pod.name || 'Unknown';
+                const namespace = pod.namespace || 'default';
+                
+                return `
+                  <tr>
+                    <td>${podName}</td>
+                    <td><span class="status-badge status-${isReady ? 'ready' : 'pending'}">${ready}</span></td>
+                    <td>${created}</td>
+                    <td>
+                      <button class="btn btn-warning btn-sm" onclick="scalePod('${namespace}', '${podName}')">
+                        <i class="fas fa-expand-arrows-alt"></i> Scale
+                      </button>
+                      <button class="btn btn-danger btn-sm" onclick="deletePod('${namespace}', '${podName}')">
+                        <i class="fas fa-trash"></i> Delete
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        `;
+        
+        content.innerHTML = podsTable;
+      } catch (error) {
+        console.error('Error loading pod metrics:', error);
+        const content = document.getElementById('podMetricsContent');
+        if (content) {
+          content.innerHTML = `<div class="alert alert-error">Failed to load pod metrics: ${error.message || 'Unknown error'}</div>`;
+        }
+        // Set ready pods count to 0 on error
+        const readyPodsCountEl = document.getElementById('readyPodsCount');
+        if (readyPodsCountEl) {
+          readyPodsCountEl.textContent = '0';
+        }
+      }
+    }
+
+    // Populate node filter dropdown
+    function populateMonitorNodeFilter(nodeNames) {
+      const monitorNodeSelect = document.getElementById('monitorNode');
+      if (!monitorNodeSelect) return;
+      
+      monitorNodeSelect.innerHTML = '<option value="all">All Nodes</option>';
+      nodeNames.forEach(nodeName => {
+        const option = document.createElement('option');
+        option.value = nodeName;
+        option.textContent = nodeName;
+        monitorNodeSelect.appendChild(option);
+      });
+    }
+    
+    // Filter pods by testbed
+    function filterPodsByTestbed() {
+      loadPodMetrics();
+    }
+
+    // Scale pod (scales the deployment)
+    async function scalePod(namespace, podName) {
+      console.log('[Scale] Pod name:', podName);
+      
+      // Extract deployment name from pod name
+      // Pod names format: <deployment-name>-<replicaset-hash>-<pod-hash>
+      const parts = podName.split('-');
+      let deploymentName;
+      
+      // Try to extract deployment name by removing last 2 parts
+      if (parts.length >= 3) {
+        deploymentName = parts.slice(0, -2).join('-');
+      } else {
+        deploymentName = podName;
+      }
+      
+      console.log('[Scale] Extracted deployment name:', deploymentName);
+      
+      const replicas = prompt(`Enter new replica count for ${deploymentName}:`, '1');
+      if (replicas === null) return;
+      
+      try {
+        // Use direct fetch to call the correct endpoint (singular "deployment", not "deployments")
+        const url = `http://10.222.0.152:8002/api/deployment/${namespace}/${deploymentName}/scale`;
+        console.log('[Scale] Calling URL:', url);
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ replicas: parseInt(replicas) })
+        });
+        
+        console.log('[Scale] Response status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[Scale] Error response:', errorText);
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log('[Scale] Response:', result);
+        
+        if (result && result.success) {
+          const message = result.message || 'Deployment scaled successfully';
+          showAlert(message, 'success');
+          loadPodMetrics();
+        } else {
+          showAlert(result.message || 'Failed to scale deployment', 'error');
+        }
+      } catch (error) {
+        console.error('[Scale] Exception:', error);
+        showAlert(`Error scaling deployment: ${error.message}`, 'error');
+      }
+    }
+
+    // Delete pod (deletes the deployment)
+    async function deletePod(namespace, podName) {
+      console.log('[Delete] Pod name:', podName);
+      
+      // Extract deployment name from pod name
+      // Pod names format: <deployment-name>-<replicaset-hash>-<pod-hash>
+      // We need to get the deployment name by removing the last 2 parts
+      const parts = podName.split('-');
+      let deploymentName;
+      
+      // Try to extract deployment name by removing last 2 parts
+      if (parts.length >= 3) {
+        deploymentName = parts.slice(0, -2).join('-');
+      } else {
+        deploymentName = podName;
+      }
+      
+      console.log('[Delete] Extracted deployment name:', deploymentName);
+      
+      if (!confirm(`Are you sure you want to delete deployment ${deploymentName}?`)) return;
+      
+      try {
+        // Use direct fetch to call the correct endpoint (singular "deployment", not "deployments")
+        const url = `http://10.222.0.152:8002/api/deployment/${namespace}/${deploymentName}`;
+        console.log('[Delete] Calling URL:', url);
+        
+        const response = await fetch(url, {
+          method: 'DELETE'
+        });
+        
+        console.log('[Delete] Response status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[Delete] Error response:', errorText);
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log('[Delete] Response:', result);
+        
+        if (result && result.success) {
+          const message = result.message || 'Deployment deleted successfully';
+          showAlert(message, 'success');
+          loadPodMetrics();
+        } else {
+          showAlert(result.message || 'Failed to delete deployment', 'error');
+        }
+      } catch (error) {
+        console.error('[Delete] Exception:', error);
+        showAlert(`Error deleting deployment: ${error.message}`, 'error');
+      }
+    }
+
+    // Deploy form submission
+    document.getElementById('deployForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const nodeValue = document.getElementById('node').value;
+      const deployData = {
+        namespace: 'default',
+        app: document.getElementById('template').value,
+        imageTag: 'latest', // Always use latest
+        replicas: parseInt(document.getElementById('replicas').value) || 1,
+        node: nodeValue && nodeValue !== '' ? nodeValue : null,
+        env: []
+      };
+      
+      if (!deployData.app) {
+        showAlert('Please select an Agrarian application to deploy', 'warning');
+        return;
+      }
+      
+      if (!nodeValue) {
+        showAlert('Please select a node', 'warning');
+        return;
+      }
+      
+      try {
+        showAlert('Deploying application...', 'info');
+        
+        const response = await fetch('http://10.222.0.152:8002/api/deploy', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            namespace: deployData.namespace,
+            app: deployData.app,
+            imageTag: deployData.imageTag,
+            replicas: deployData.replicas,
+            node: deployData.node,
+            env: deployData.env
+          })
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log('[Deploy] Response:', result);
+        
+        if (result && result.success) {
+          const deploymentName = result.deployment_name || result.deployment_id || 'deployment';
+          showAlert(`Application ${deployData.app} deployed successfully! Deployment: ${deploymentName}`, 'success');
+          this.reset();
+          document.getElementById('testbed').value = 'testbed-3';
+          loadNodesForTestbed();
+          
+          if (currentTab === 'monitor') {
+            loadPodMetrics();
+          }
+        } else {
+          showAlert('Failed to deploy application', 'error');
+        }
+      } catch (error) {
+        showAlert(`Error deploying application: ${error.message}`, 'error');
+      }
+    });
+
+    // Testbed change handler
+    document.getElementById('testbed').addEventListener('change', function() {
+      loadNodesForTestbed();
+    });
+
+    // Select application for deployment (from Applications tab)
+    function selectApplicationForDeploy(appName, testbed = 'testbed-3') {
+      selectedAppForDeploy = appName;
+      selectedTestbedForDeploy = testbed;
+      
+      // Switch to deploy tab
+      const deployTab = document.querySelector('[data-tab="deploy"]');
+      if (deployTab) {
+        deployTab.click();
+      }
+      
+      // Set testbed and application
+      setTimeout(() => {
+        const testbedSelect = document.getElementById('testbed');
+        const templateSelect = document.getElementById('template');
+        
+        if (testbedSelect) {
+          testbedSelect.value = testbed;
+          loadNodesForTestbed();
+        }
+        
+        if (templateSelect && selectedAppForDeploy) {
+          templateSelect.value = selectedAppForDeploy;
+        }
+        
+        showAlert(`Selected ${appName} for deployment on ${testbed}`, 'success');
+      }, 100);
+    }
+
+    // Auto refresh
+    function startAutoRefresh() {
+      autoRefreshInterval = setInterval(() => {
+        if (currentTab === 'monitor') {
+          loadPodMetrics();
+        }
+      }, 30000); // Refresh every 30 seconds
+    }
+
+    // Update connection status
+    function updateConnectionStatus(connected) {
+      const statusElement = document.getElementById('connectionStatus');
+      const dotElement = document.querySelector('.status-dot');
+      
+      if (connected) {
+        statusElement.textContent = 'Connected';
+        dotElement.style.background = 'var(--ok)';
+      } else {
+        statusElement.textContent = 'Disconnected';
+        dotElement.style.background = 'var(--err)';
+      }
+    }
+
+    // Show alert
+    function showAlert(message, type) {
+      const alertContainer = document.getElementById('alertContainer');
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type}`;
+      alert.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'times-circle'}"></i>
+        ${message}
+      `;
+      
+      alertContainer.appendChild(alert);
+      
+      setTimeout(() => {
+        alert.remove();
+      }, 5000);
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+      }
+    });
+  </script>
+</body>
+</html>
+

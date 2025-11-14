@@ -28,16 +28,16 @@ A web-based dashboard for deploying and managing applications on Kubernetes clus
 3. **Start the backend**:
    ```bash
    cd backend
-   python3 -m uvicorn fastapi_app:app --host 0.0.0.0 --port [PORT]
+   python3 -m uvicorn fastapi_app:app --host 0.0.0.0 --port 8002
    ```
 
 4. **Start the frontend** (in another terminal):
    ```bash
    cd frontend
-   python3 -m http.server [PORT]
+   python3 -m http.server 8025
    ```
 
-5. **Access the working dashboard**: http://10.222.0.152:8025
+5. **Access the dashboard**: http://localhost:8025
 
 ## Architecture
 
@@ -62,4 +62,6 @@ The dashboard requires:
 ## License
 
 Part of the Agrarian Ecosystem project.
+
+
 

@@ -11,27 +11,13 @@ info:
     - Query Kubernetes pods and their deployment information
     - Deploy applications to Kubernetes with automatic node selection
     
-    ## Authentication
-    Currently, this API does not require authentication. All endpoints are publicly accessible.
-    
     ## Base URL
-    The API is typically available at `http://10.222.0.152:8003` or `http://localhost:8003` for local development.
+    The API is typically available at `http://10.222.0.152:8003`.
     
     ## Data Sources
     - **Applications**: Retrieved from GitHub Container Registry (GHCR) with metadata from `app_info.json`
     - **Nodes & Testbeds**: Retrieved from Kubernetes cluster with testbed mapping from `node_info.json`
     - **Pods**: Retrieved from Kubernetes cluster with testbed information inferred from node mappings
-    
-  version: 1.0.0
-  contact:
-    name: Agrarian Project
-    url: https://github.com/agrarian-application-repository
-
-servers:
-  - url: http://10.222.0.152:8003
-    description: Production server
-  - url: http://localhost:8003
-    description: Local development server
 
 tags:
   - name: Applications
@@ -225,17 +211,9 @@ paths:
         
         **Automatic Node Selection:**
         1. Looks up the application in `app_info.json` to retrieve `testbed` and `node_type`
-        2. Maps `node_type` to a node type in `node_info.json` (e.g., "Hybrid (Edge + Satellite)" → "fog")
+        2. Maps `node_type` to a node type in `node_info.json`
         3. Finds the matching node in `node_info.json` based on `testbed` and `type`
         4. Deploys the application to that node
-        
-        **Node Type Mapping:**
-        - "Hybrid (Edge + Satellite)" → "fog"
-        - "Edge (Jetson Orin)" → "edge"
-        - "Edge" → "edge"
-        - "Satellite" → "satellite" (or "fog" if no satellite nodes exist)
-        - "Cloud" → "cloud"
-        - "Fog" → "fog"
         
         If a node is explicitly provided in the request, it will be used instead of automatic selection.
         

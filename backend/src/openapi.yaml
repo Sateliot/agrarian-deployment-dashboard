@@ -2,10 +2,9 @@ openapi: 3.0.3
 info:
   title: Agrarian Partner API
   description: |
-    Simplified API endpoints for external collaborators to interact with the Agrarian Deployment Dashboard.
+    API endpoints for external collaborators to interact with the Agrarian Deployment Dashboard.
     
-    This API provides a minimal set of endpoints for building simplified deployment tools without requiring
-    access to the full dashboard functionality. It enables partners to:
+    This API provides a set of endpoints for building deployment tools. It enables partners to:
     - Retrieve available applications with metadata
     - Query Kubernetes nodes and their associated testbeds
     - Query Kubernetes pods and their deployment information
@@ -63,6 +62,7 @@ paths:
                       node_type: Satellite
                       developer: KyberKore P.C.
                       use_case: Enables routine scanning of large vineyards to reduce manual labour
+                      project: ""
                       github_link: https://github.com/agrarian-application-repository/grapedisease/pkgs/container/grapedisease
                       image: ghcr.io/agrarian-application-repository/grapedisease
                       version: latest
@@ -72,8 +72,19 @@ paths:
                       node_type: Edge (Jetson Orin)
                       developer: PLAIXUS PRIVATE COMPANY (PLX)
                       use_case: Real-time lameness detection validated on a sheep farm
+                      project: ""
                       github_link: https://github.com/agrarian-application-repository/elder-app/pkgs/container/elder-app
                       image: ghcr.io/agrarian-application-repository/elder-app
+                      version: latest
+                    - name: grazesense-web
+                      description: Plans drone surveys, maps pasture health via NDVI, and counts sheep with AI
+                      testbed: "1"
+                      node_type: Edge
+                      developer: AEDICOM RESEARCH LTD
+                      use_case: A farmer defines a field, runs a coordinated drone flight, and receives NDVI maps
+                      project: GRAZESENSE
+                      github_link: https://github.com/agrarian-application-repository/grazesense-web/pkgs/container/grazesense-web
+                      image: ghcr.io/agrarian-application-repository/grazesense-web
                       version: latest
         '504':
           description: GitHub API request timed out
@@ -345,6 +356,10 @@ components:
           type: string
           description: Use case description
           example: Enables routine scanning of large vineyards to reduce manual labour
+        project:
+          type: string
+          description: Project name associated with the application (from app_info.json)
+          example: GRAZESENSE
         github_link:
           type: string
           format: uri
@@ -539,4 +554,5 @@ components:
                 - app
               msg: Field required
               input: null
+
 

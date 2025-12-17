@@ -1,855 +1,564 @@
 openapi: 3.0.3
 info:
-  title: Agrarian Deployment Dashboard API
-  version: "1.0.0"
+  title: Agrarian Partner API
   description: |
-    Base URL: http://<host>:8002
-    Notes:
-    - All timestamps are UTC ISO 8601 (Z / +00:00).
+    Simplified API endpoints for external collaborators to interact with the Agrarian Deployment Dashboard.
+    
+    This API provides a minimal set of endpoints for building simplified deployment tools without requiring
+    access to the full dashboard functionality. It enables partners to:
+    - Retrieve available applications with metadata
+    - Query Kubernetes nodes and their associated testbeds
+    - Query Kubernetes pods and their deployment information
+    - Deploy applications to Kubernetes with automatic node selection
+    
+    ## Authentication
+    Currently, this API does not require authentication. All endpoints are publicly accessible.
+    
+    ## Base URL
+    The API is typically available at `http://10.222.0.152:8003` or `http://localhost:8003` for local development.
+    
+    ## Data Sources
+    - **Applications**: Retrieved from GitHub Container Registry (GHCR) with metadata from `app_info.json`
+    - **Nodes & Testbeds**: Retrieved from Kubernetes cluster with testbed mapping from `node_info.json`
+    - **Pods**: Retrieved from Kubernetes cluster with testbed information inferred from node mappings
+    
+  version: 1.0.0
+  contact:
+    name: Agrarian Project
+    url: https://github.com/agrarian-application-repository
+
 servers:
-  - url: http://{host}:8002
-    variables:
-      host:
-        default: localhost
+  - url: http://10.222.0.152:8003
+    description: Production server
+  - url: http://localhost:8003
+    description: Local development server
 
 tags:
-  - name: Health
-  - name: Deployment Management
-  - name: Application Discovery
-  - name: Satellite Management
-  - name: Kubernetes Resources
-  - name: History & Logs
-  - name: Metrics
-  - name: Templates
-  - name: KEDA Integration
-  - name: Pod Management
+  - name: Applications
+    description: Operations related to retrieving application information
+  - name: Nodes
+    description: Operations related to Kubernetes nodes and testbeds
+  - name: Pods
+    description: Operations related to Kubernetes pods
+  - name: Deployment
+    description: Operations related to deploying applications
 
 paths:
-  /health:
+  /api/v1/apps:
     get:
-      tags: [Health]
-      summary: Health check
+      tags:
+        - Applications
+      summary: Get all applications
+      description: |
+        Retrieves all available applications from GitHub Container Registry (GHCR) with enriched metadata
+        from `app_info.json`. Each application includes information about its testbed, node type, developer,
+        use case, and GitHub repository link.
+        
+        The endpoint combines data from:
+        - GitHub Packages API (for available container images)
+        - `app_info.json` (for application metadata)
+      operationId: getApps
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Successful response with list of applications
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/HealthResponse" }
-
-  /api/health:
-    get:
-      tags: [Health]
-      summary: API health check endpoint
-      responses:
-        "200":
-          description: OK
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Application'
+              examples:
+                success:
+                  summary: Example response
+                  value:
+                    - name: grapedisease
+                      description: A set of interconnected tools for semi-automated drone-based disease detection in vineyards
+                      testbed: "2"
+                      node_type: Satellite
+                      developer: KyberKore P.C.
+                      use_case: Enables routine scanning of large vineyards to reduce manual labour
+                      github_link: https://github.com/agrarian-application-repository/grapedisease/pkgs/container/grapedisease
+                      image: ghcr.io/agrarian-application-repository/grapedisease
+                      version: latest
+                    - name: elder-app
+                      description: A cost-effective, non-invasive edge-AI system that automates sheep lameness detection
+                      testbed: "4"
+                      node_type: Edge (Jetson Orin)
+                      developer: PLAIXUS PRIVATE COMPANY (PLX)
+                      use_case: Real-time lameness detection validated on a sheep farm
+                      github_link: https://github.com/agrarian-application-repository/elder-app/pkgs/container/elder-app
+                      image: ghcr.io/agrarian-application-repository/elder-app
+                      version: latest
+        '504':
+          description: GitHub API request timed out
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/HealthResponse" }
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: GitHub API request timed out. Please try again later.
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-  /api/deploy:
+  /api/v1/nodes:
+    get:
+      tags:
+        - Nodes
+      summary: Get all Kubernetes nodes with testbeds
+      description: |
+        Retrieves all Kubernetes nodes in the cluster along with their associated testbed information.
+        The testbed information is determined from `node_info.json`, which maps each node to its
+        corresponding testbed.
+        
+        **Node Status:**
+        - `Ready`: Node is ready to accept pods
+        - `NotReady`: Node is not ready (may be down, unreachable, or not fully initialized)
+      operationId: getNodes
+      responses:
+        '200':
+          description: Successful response with list of nodes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Node'
+              examples:
+                success:
+                  summary: Example response
+                  value:
+                    - name: dlr-fog-node1
+                      testbed: "2"
+                      status: Ready
+                    - name: demokritos-edge-node1
+                      testbed: "1"
+                      status: NotReady
+                    - name: sateliot-edge-node1
+                      testbed: "4"
+                      status: Ready
+        '503':
+          description: Service unavailable - Cannot connect to Kubernetes cluster
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: "Cannot connect to Kubernetes cluster: No route to host"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/pods:
+    get:
+      tags:
+        - Pods
+      summary: Get all Kubernetes pods with testbed information
+      description: |
+        Retrieves all Kubernetes pods in the cluster (or filtered by namespace) along with their
+        associated testbed information. The testbed is determined based on the node where the pod
+        is running, using the mapping from `node_info.json`.
+        
+        **Pod Status:**
+        Common statuses include: `Running`, `Pending`, `Succeeded`, `Failed`, `Unknown`
+      operationId: getPods
+      parameters:
+        - name: namespace
+          in: query
+          description: Optional namespace filter. If provided, only pods in this namespace are returned.
+          required: false
+          schema:
+            type: string
+            example: default
+      responses:
+        '200':
+          description: Successful response with list of pods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pod'
+              examples:
+                success:
+                  summary: Example response
+                  value:
+                    - name: grapedisease-1765974975-abc123
+                      status: Running
+                      creation_date: "2025-01-19T10:30:00Z"
+                      node: dlr-fog-node1
+                      testbed: "2"
+                      namespace: default
+                    - name: elder-app-1765974000-xyz789
+                      status: Running
+                      creation_date: "2025-01-19T09:15:00Z"
+                      node: sateliot-edge-node1
+                      testbed: "4"
+                      namespace: default
+        '503':
+          description: Service unavailable - Cannot connect to Kubernetes cluster
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/deploy:
     post:
-      tags: [Deployment Management]
+      tags:
+        - Deployment
       summary: Deploy an application to Kubernetes
-      description: Supports regular and satellite deployments (scheduled via KEDA when node="satellite").
+      description: |
+        Deploys an application to the Kubernetes cluster. The endpoint automatically determines the
+        target node based on the application's metadata in `app_info.json` and `node_info.json`.
+        
+        **Automatic Node Selection:**
+        1. Looks up the application in `app_info.json` to retrieve `testbed` and `node_type`
+        2. Maps `node_type` to a node type in `node_info.json` (e.g., "Hybrid (Edge + Satellite)" → "fog")
+        3. Finds the matching node in `node_info.json` based on `testbed` and `type`
+        4. Deploys the application to that node
+        
+        **Node Type Mapping:**
+        - "Hybrid (Edge + Satellite)" → "fog"
+        - "Edge (Jetson Orin)" → "edge"
+        - "Edge" → "edge"
+        - "Satellite" → "satellite" (or "fog" if no satellite nodes exist)
+        - "Cloud" → "cloud"
+        - "Fog" → "fog"
+        
+        If a node is explicitly provided in the request, it will be used instead of automatic selection.
+        
+        The deployment creates a Kubernetes Deployment resource with the specified number of replicas.
+        If the target namespace doesn't exist, it will be created automatically.
+      operationId: deployApp
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/DeployRequest" }
+            schema:
+              $ref: '#/components/schemas/DeployRequest'
+            examples:
+              minimal:
+                summary: Minimal request (only app name)
+                value:
+                  app: grapedisease
+              with_namespace:
+                summary: With custom namespace
+                value:
+                  app: grapedisease
+                  namespace: production
+              with_all_fields:
+                summary: With all optional fields
+                value:
+                  app: grapedisease
+                  namespace: default
+                  node: dlr-fog-node1
+                  replicas: 2
+                  imageTag: v1.0.0
       responses:
-        "200":
-          description: Deployment result (regular or scheduled)
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DeployResponse" }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/generate-yaml:
-    post:
-      tags: [Deployment Management]
-      summary: Generate Kubernetes YAML manifest (no deploy)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/DeployRequest" }
-      responses:
-        "200":
-          description: Generated YAML/manifest object
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/GenerateYamlResponse" }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/deployments/detailed:
-    get:
-      tags: [Deployment Management]
-      summary: Get detailed info about all deployments across all namespaces
-      responses:
-        "200":
-          description: List of deployments
+        '200':
+          description: Deployment successful
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/DeploymentSummary" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/deployment/{namespace}/{name}/details:
-    get:
-      tags: [Deployment Management]
-      summary: Get detailed information about a specific deployment
-      parameters:
-        - $ref: "#/components/parameters/NamespacePath"
-        - $ref: "#/components/parameters/DeploymentNamePath"
-      responses:
-        "200":
-          description: Deployment details
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DeploymentDetails" }
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/deployment/{namespace}/{name}/scale:
-    post:
-      tags: [Deployment Management]
-      summary: Scale a deployment to a specific number of replicas
-      parameters:
-        - $ref: "#/components/parameters/NamespacePath"
-        - $ref: "#/components/parameters/DeploymentNamePath"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ScaleRequest" }
-      responses:
-        "200":
-          description: Scale result
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ScaleResponse" }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/deployment/{namespace}/{name}:
-    delete:
-      tags: [Deployment Management]
-      summary: Delete a deployment
-      parameters:
-        - $ref: "#/components/parameters/NamespacePath"
-        - $ref: "#/components/parameters/DeploymentNamePath"
-      responses:
-        "200":
-          description: Delete result
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/SuccessMessage" }
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/apps:
-    get:
-      tags: [Application Discovery]
-      summary: Get list of available application names from GitHub Packages
-      responses:
-        "200":
-          description: App names
+                $ref: '#/components/schemas/DeployResponse'
+              examples:
+                success:
+                  summary: Successful deployment
+                  value:
+                    success: true
+                    deployment_name: grapedisease-1765974975
+                    message: Application 'grapedisease' deployed successfully to node 'dlr-fog-node1' in namespace 'default'
+                    namespace: default
+                    replicas: 1
+                    node: dlr-fog-node1
+                    app_info:
+                      testbed: "Testbed 2: Non-Geosynchronous Orbit (NGSO) Satellite Communications with EDGE capabilities;"
+                      node_type: Satellite
+        '404':
+          description: Application not found
           content:
             application/json:
               schema:
-                type: array
-                items: { type: string }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/applications:
-    get:
-      tags: [Application Discovery]
-      summary: Get detailed info about all available applications from GitHub Packages
-      parameters:
-        - name: refresh
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-          description: Force refresh from GitHub
-      responses:
-        "200":
-          description: Applications
+                $ref: '#/components/schemas/Error'
+              examples:
+                app_not_found_github:
+                  summary: App not in GitHub Packages
+                  value:
+                    detail: Application 'nonexistent-app' not found in GitHub Packages
+                app_not_found_metadata:
+                  summary: App not in app_info.json
+                  value:
+                    detail: Application 'grapedisease' not found in app_info.json
+                node_not_found:
+                  summary: Cannot determine target node
+                  value:
+                    detail: Could not determine target node for application 'some-app'. Please check app_info.json and node_info.json.
+        '422':
+          description: Validation error - Invalid request body
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/Application" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/satellite/next:
-    get:
-      tags: [Satellite Management]
-      summary: Get the next available satellite and all upcoming passes (next 24 hours)
-      responses:
-        "200":
-          description: Next satellite and passes
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/SatelliteNextResponse" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/satellite/passes:
-    get:
-      tags: [Satellite Management]
-      summary: Get all satellite passes for the next N days
-      parameters:
-        - name: days_ahead
-          in: query
-          required: false
-          schema: { type: integer, default: 1, minimum: 1 }
-      responses:
-        "200":
-          description: Passes
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/SatellitePassesResponse" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/satellite/passes/{satellite_name}:
-    get:
-      tags: [Satellite Management]
-      summary: Get all passes for a specific satellite
-      parameters:
-        - name: satellite_name
-          in: path
-          required: true
-          schema: { type: string, example: SATELIOT_4 }
-        - name: days_ahead
-          in: query
-          required: false
-          schema: { type: integer, default: 1, minimum: 1 }
-      responses:
-        "200":
-          description: Passes for satellite
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/SatellitePassesForSatelliteResponse" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/namespaces:
-    get:
-      tags: [Kubernetes Resources]
-      summary: Get list of available Kubernetes namespaces
-      responses:
-        "200":
-          description: Namespaces
+                $ref: '#/components/schemas/ValidationError'
+              example:
+                detail:
+                  - type: missing
+                    loc:
+                      - body
+                      - app
+                    msg: Field required
+                    input: null
+        '500':
+          description: Internal server error
           content:
             application/json:
               schema:
-                type: array
-                items: { type: string }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nodes:
-    get:
-      tags: [Kubernetes Resources]
-      summary: Get list of available Kubernetes worker nodes
-      responses:
-        "200":
-          description: Node names
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Service unavailable - Kubernetes client not available
           content:
             application/json:
               schema:
-                type: array
-                items: { type: string }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/history/deployments:
-    get:
-      tags: [History & Logs]
-      summary: Get deployment history from Kubernetes
-      responses:
-        "200":
-          description: History
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/DeploymentHistoryItem" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/logs/{namespace}/{pod_name}:
-    get:
-      tags: [History & Logs]
-      summary: Get logs from a specific pod
-      parameters:
-        - $ref: "#/components/parameters/NamespacePath"
-        - name: pod_name
-          in: path
-          required: true
-          schema: { type: string }
-        - name: tail
-          in: query
-          required: false
-          schema: { type: integer, default: 100, minimum: 1 }
-        - name: follow
-          in: query
-          required: false
-          schema: { type: boolean, default: false }
-      responses:
-        "200":
-          description: Pod logs (plain text)
-          content:
-            text/plain:
-              schema: { type: string }
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/metrics/deployments:
-    get:
-      tags: [Metrics]
-      summary: Get metrics for all deployments
-      responses:
-        "200":
-          description: Deployment metrics
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DeploymentMetrics" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/metrics/pods:
-    get:
-      tags: [Metrics]
-      summary: Get metrics for all pods
-      responses:
-        "200":
-          description: Pod metrics
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/PodMetrics" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/templates/available:
-    get:
-      tags: [Templates]
-      summary: Get list of available application templates
-      responses:
-        "200":
-          description: Templates (lightweight)
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/TemplateAvailable" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/templates:
-    get:
-      tags: [Templates]
-      summary: Get detailed template information
-      parameters:
-        - name: name
-          in: query
-          required: false
-          schema: { type: string }
-          description: Filter by template name
-      responses:
-        "200":
-          description: Templates (detailed)
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/TemplateDetails" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/templates/refresh:
-    post:
-      tags: [Templates]
-      summary: Refresh templates from GitHub Packages
-      responses:
-        "200":
-          description: Refresh result
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/TemplatesRefreshResponse" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /keda/isActive/{namespace}/{deployment_name}:
-    get:
-      tags: [KEDA Integration]
-      summary: Check if a deployment should be scaled (satellite pass time reached)
-      parameters:
-        - $ref: "#/components/parameters/NamespacePath"
-        - name: deployment_name
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Active result
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/KedaIsActiveResponse" }
-
-  /keda/getMetricSpec/{namespace}/{deployment_name}:
-    get:
-      tags: [KEDA Integration]
-      summary: Get metric specification for KEDA
-      parameters:
-        - $ref: "#/components/parameters/NamespacePath"
-        - name: deployment_name
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Metric spec
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/KedaMetricSpecResponse" }
-
-  /keda/getMetrics/{namespace}/{deployment_name}:
-    get:
-      tags: [KEDA Integration]
-      summary: Get current metric value for KEDA
-      parameters:
-        - $ref: "#/components/parameters/NamespacePath"
-        - name: deployment_name
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Metrics
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/KedaMetricsResponse" }
-
-  /keda/list:
-    get:
-      tags: [KEDA Integration]
-      summary: List all registered KEDA scalers (scheduled deployments)
-      responses:
-        "200":
-          description: Scalers
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/KedaListResponse" }
-
-  /api/pods:
-    get:
-      tags: [Pod Management]
-      summary: Get list of pods in a namespace
-      parameters:
-        - name: ns
-          in: query
-          required: false
-          schema: { type: string, default: default }
-      responses:
-        "200":
-          description: Pods
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/Pod" }
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      tags: [Pod Management]
-      summary: Get list of pods in a namespace (POST version)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/PodsPostRequest" }
-      responses:
-        "200":
-          description: Pods (same as GET /api/pods)
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/Pod" }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "500":
-          $ref: "#/components/responses/InternalError"
+                $ref: '#/components/schemas/Error'
+              example:
+                detail: Kubernetes client not available
 
 components:
-  parameters:
-    NamespacePath:
-      name: namespace
-      in: path
-      required: true
-      schema: { type: string, example: default }
-    DeploymentNamePath:
-      name: name
-      in: path
-      required: true
-      schema: { type: string, example: plant-app-deployment }
-
-  responses:
-    BadRequest:
-      description: 400 Bad Request
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/ErrorResponse" }
-    NotFound:
-      description: 404 Not Found
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/ErrorResponse" }
-    InternalError:
-      description: 500 Internal Server Error
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/ErrorResponse" }
-
   schemas:
-    HealthResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: healthy
-      required: [status]
-
-    ErrorResponse:
-      type: object
-      properties:
-        detail:
-          type: string
-      required: [detail]
-
-    EnvVar:
-      type: object
-      properties:
-        key: { type: string }
-        value: { type: string }
-      required: [key, value]
-
-    DeployRequest:
-      type: object
-      required: [namespace, app]
-      properties:
-        namespace:
-          type: string
-          description: Target Kubernetes namespace
-        app:
-          type: string
-          description: Application name (must exist in GitHub Packages)
-        imageTag:
-          type: string
-          default: latest
-        replicas:
-          type: integer
-          default: 1
-          minimum: 1
-        node:
-          description: '"satellite" to auto-select next satellite; specific node name; or null / "Any node".'
-          type: string
-          nullable: true
-          example: satellite
-        env:
-          type: array
-          items: { $ref: "#/components/schemas/EnvVar" }
-
-    DeployResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        deployment_id: { type: string }
-        status:
-          type: string
-          description: success | scheduled
-        message: { type: string }
-        manifest:
-          description: Kubernetes manifest (structure varies)
-          type: object
-          additionalProperties: true
-        deployment_name: { type: string }
-        node: { type: string }
-        satellite_info:
-          $ref: "#/components/schemas/SatelliteInfo"
-        scheduled_time:
-          type: string
-          format: date-time
-        delay_seconds:
-          type: integer
-        keda_enabled:
-          type: boolean
-        note:
-          type: string
-      required: [success, deployment_id, status, message, deployment_name]
-
-    SatelliteInfo:
-      type: object
-      properties:
-        satellite_name: { type: string }
-        next_pass: { $ref: "#/components/schemas/SatellitePass" }
-        all_passes:
-          type: array
-          items: { $ref: "#/components/schemas/SatellitePass" }
-
-    GenerateYamlResponse:
-      type: object
-      properties:
-        yaml:
-          type: object
-          additionalProperties: true
-        success:
-          type: boolean
-      required: [success]
-
-    DeploymentSummary:
-      type: object
-      properties:
-        name: { type: string }
-        namespace: { type: string }
-        replicas: { type: integer }
-        ready: { type: integer }
-        available: { type: integer }
-        age: { type: string }
-        image: { type: string }
-        node: { type: string }
-
-    DeploymentDetails:
-      type: object
-      properties:
-        name: { type: string }
-        namespace: { type: string }
-        replicas: { type: integer }
-        ready: { type: integer }
-        available: { type: integer }
-        unavailable: { type: integer }
-        age: { type: string }
-        image: { type: string }
-        node: { type: string }
-        labels:
-          type: object
-          additionalProperties: true
-        annotations:
-          type: object
-          additionalProperties: true
-
-    ScaleRequest:
-      type: object
-      required: [replicas]
-      properties:
-        replicas:
-          type: integer
-          minimum: 0
-
-    ScaleResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        message: { type: string }
-        replicas: { type: integer }
-      required: [success, message, replicas]
-
-    SuccessMessage:
-      type: object
-      properties:
-        success: { type: boolean }
-        message: { type: string }
-      required: [success, message]
-
     Application:
       type: object
+      required:
+        - name
+        - image
+        - version
       properties:
-        name: { type: string }
-        description: { type: string }
-        version: { type: string }
-        image: { type: string }
-        tags:
-          type: array
-          items: { type: string }
+        name:
+          type: string
+          description: Application name (matches GitHub package name)
+          example: grapedisease
+        description:
+          type: string
+          description: Application description
+          example: A set of interconnected tools for semi-automated drone-based disease detection in vineyards
+        testbed:
+          type: string
+          description: Testbed number (extracted from full testbed name in app_info.json)
+          example: "2"
+        node_type:
+          type: string
+          description: Type of node required for this application
+          example: Satellite
+        developer:
+          type: string
+          description: Developer or organization name
+          example: KyberKore P.C.
+        use_case:
+          type: string
+          description: Use case description
+          example: Enables routine scanning of large vineyards to reduce manual labour
+        github_link:
+          type: string
+          format: uri
+          description: Link to GitHub repository or package
+          example: https://github.com/agrarian-application-repository/grapedisease/pkgs/container/grapedisease
+        image:
+          type: string
+          description: Container image path
+          example: ghcr.io/agrarian-application-repository/grapedisease
+        version:
+          type: string
+          description: Image version/tag
+          example: latest
 
-    SatellitePass:
+    Node:
       type: object
+      required:
+        - name
+        - testbed
+        - status
       properties:
-        satellite: { type: string }
-        aos: { type: string, format: date-time }
-        tca: { type: string, format: date-time }
-        los: { type: string, format: date-time }
-        duration: { type: integer }
-        max_elevation: { type: number }
-      required: [satellite, aos, tca, los, duration, max_elevation]
-
-    SatelliteNextResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        satellite_name: { type: string }
-        node_name: { type: string }
-        next_pass: { $ref: "#/components/schemas/SatellitePass" }
-        all_passes:
-          type: array
-          items: { $ref: "#/components/schemas/SatellitePass" }
-      required: [success, satellite_name, node_name, next_pass, all_passes]
-
-    SatellitePassesResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        passes:
-          type: array
-          items: { $ref: "#/components/schemas/SatellitePass" }
-        count: { type: integer }
-      required: [success, passes, count]
-
-    SatellitePassesForSatelliteResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        satellite_name: { type: string }
-        passes:
-          type: array
-          items: { $ref: "#/components/schemas/SatellitePass" }
-        count: { type: integer }
-      required: [success, satellite_name, passes, count]
-
-    DeploymentHistoryItem:
-      type: object
-      properties:
-        name: { type: string }
-        namespace: { type: string }
-        status: { type: string }
-        replicas: { type: integer }
-        age: { type: string }
-        image: { type: string }
-
-    DeploymentMetrics:
-      type: object
-      properties:
-        total: { type: integer }
-        active: { type: integer }
-        failed: { type: integer }
-        pending: { type: integer }
-        by_namespace:
-          type: object
-          additionalProperties: { type: integer }
-      required: [total, active, failed, pending, by_namespace]
-
-    PodMetrics:
-      type: object
-      properties:
-        total: { type: integer }
-        running: { type: integer }
-        pending: { type: integer }
-        failed: { type: integer }
-        by_namespace:
-          type: object
-          additionalProperties: { type: integer }
-      required: [total, running, pending, failed, by_namespace]
-
-    TemplateAvailable:
-      type: object
-      properties:
-        name: { type: string }
-        description: { type: string }
-        image: { type: string }
-
-    TemplateDetails:
-      type: object
-      properties:
-        name: { type: string }
-        description: { type: string }
-        image: { type: string }
-        defaultTag: { type: string }
-        ports:
-          type: array
-          items: { type: integer }
-        env:
-          type: array
-          items: { $ref: "#/components/schemas/EnvVar" }
-
-    TemplatesRefreshResponse:
-      type: object
-      properties:
-        success: { type: boolean }
-        message: { type: string }
-        count: { type: integer }
-      required: [success, message, count]
-
-    KedaIsActiveResponse:
-      type: object
-      properties:
-        result: { type: boolean }
-      required: [result]
-
-    KedaMetricSpecResponse:
-      type: object
-      properties:
-        metricName: { type: string }
-        targetSize: { type: integer }
-      required: [metricName, targetSize]
-
-    KedaMetricsResponse:
-      type: object
-      properties:
-        metricName: { type: string }
-        metricValue: { type: integer }
-      required: [metricName, metricValue]
-
-    KedaListResponse:
-      type: object
-      properties:
-        scalers:
-          type: array
-          items: { $ref: "#/components/schemas/KedaScaler" }
-      required: [scalers]
-
-    KedaScaler:
-      type: object
-      properties:
-        namespace: { type: string }
-        name: { type: string }
-      required: [namespace, name]
+        name:
+          type: string
+          description: Kubernetes node name
+          example: dlr-fog-node1
+        testbed:
+          type: string
+          description: Testbed number associated with this node (from node_info.json)
+          example: "2"
+        status:
+          type: string
+          enum:
+            - Ready
+            - NotReady
+          description: Node status in the Kubernetes cluster
+          example: Ready
 
     Pod:
       type: object
+      required:
+        - name
+        - status
+        - creation_date
+        - node
+        - testbed
+        - namespace
       properties:
-        name: { type: string }
-        namespace: { type: string }
-        status: { type: string }
-        node: { type: string }
-        restarts: { type: integer }
-        created: { type: string, format: date-time }
-        age: { type: string }
+        name:
+          type: string
+          description: Pod name
+          example: grapedisease-1765974975-abc123
+        status:
+          type: string
+          description: Pod status (Running, Pending, Succeeded, Failed, Unknown)
+          example: Running
+        creation_date:
+          type: string
+          format: date-time
+          description: Pod creation timestamp in ISO 8601 format (UTC)
+          example: "2025-01-19T10:30:00Z"
+        node:
+          type: string
+          description: Node name where the pod is running
+          example: dlr-fog-node1
+        testbed:
+          type: string
+          description: Testbed number associated with the pod's node
+          example: "2"
+        namespace:
+          type: string
+          description: Kubernetes namespace where the pod is deployed
+          example: default
 
-    PodsPostRequest:
+    DeployRequest:
       type: object
-      required: [ns]
+      required:
+        - app
       properties:
-        ns: { type: string }
+        app:
+          type: string
+          description: Application name (required). Must exist in GitHub Packages and app_info.json
+          example: grapedisease
+        namespace:
+          type: string
+          description: 'Target Kubernetes namespace (optional, default: "default")'
+          default: default
+          example: default
+        node:
+          type: string
+          nullable: true
+          description: Target node name (optional). If not provided, the node is automatically determined from app_info.json and node_info.json
+          example: dlr-fog-node1
+        replicas:
+          type: integer
+          minimum: 1
+          description: 'Number of replicas to deploy (optional, default: 1)'
+          default: 1
+          example: 1
+        imageTag:
+          type: string
+          description: 'Container image tag/version (optional, default: "latest")'
+          default: latest
+          example: latest
+
+    DeployResponse:
+      type: object
+      required:
+        - success
+        - deployment_name
+        - message
+        - namespace
+        - replicas
+        - node
+      properties:
+        success:
+          type: boolean
+          description: Whether the deployment was successful
+          example: true
+        deployment_name:
+          type: string
+          description: Name of the created Kubernetes deployment
+          example: grapedisease-1765974975
+        message:
+          type: string
+          description: Human-readable status message
+          example: Application 'grapedisease' deployed successfully to node 'dlr-fog-node1' in namespace 'default'
+        namespace:
+          type: string
+          description: Namespace where the deployment was created
+          example: default
+        replicas:
+          type: integer
+          description: Number of replicas deployed
+          example: 1
+        node:
+          type: string
+          description: Node where the application was deployed
+          example: dlr-fog-node1
+        app_info:
+          type: object
+          description: Application metadata used for deployment
+          properties:
+            testbed:
+              type: string
+              description: Full testbed name from app_info.json
+              example: "Testbed 2: Non-Geosynchronous Orbit (NGSO) Satellite Communications with EDGE capabilities;"
+            node_type:
+              type: string
+              description: Node type from app_info.json
+              example: Satellite
+
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: Application 'nonexistent-app' not found in GitHub Packages
+
+    ValidationError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  loc:
+                    type: array
+                    items:
+                      oneOf:
+                        - type: string
+                        - type: integer
+                  msg:
+                    type: string
+                  input:
+                    type: string
+                    nullable: true
+          description: Validation error details
+          example:
+            - type: missing
+              loc:
+                - body
+                - app
+              msg: Field required
+              input: null
+

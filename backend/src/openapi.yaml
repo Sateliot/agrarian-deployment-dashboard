@@ -37,7 +37,7 @@ paths:
       description: |
         Retrieves all available applications from GitHub Container Registry (GHCR) with enriched metadata
         from `app_info.json`. Each application includes information about its testbed, node type, developer,
-        use case, and GitHub repository link.
+        use case, project name, and GitHub repository link.
         
         The endpoint combines data from:
         - GitHub Packages API (for available container images)
@@ -52,9 +52,40 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Application'
+              example:
+                - name: grapedisease
+                  description: A set of interconnected tools for semi-automated drone-based disease detection in vineyards
+                  testbed: "2"
+                  node_type: Satellite
+                  developer: KyberKore P.C.
+                  use_case: Enables routine scanning of large vineyards to reduce manual labour
+                  project: VINEA-DRONE
+                  github_link: https://github.com/agrarian-application-repository/grapedisease/pkgs/container/grapedisease
+                  image: ghcr.io/agrarian-application-repository/grapedisease
+                  version: latest
+                - name: elder-app
+                  description: A cost-effective, non-invasive edge-AI system that automates sheep lameness detection
+                  testbed: "4"
+                  node_type: Edge (Jetson Orin)
+                  developer: PLAIXUS PRIVATE COMPANY (PLX)
+                  use_case: Real-time lameness detection validated on a sheep farm
+                  project: ELDER
+                  github_link: https://github.com/agrarian-application-repository/elder-app/pkgs/container/elder-app
+                  image: ghcr.io/agrarian-application-repository/elder-app
+                  version: latest
+                - name: grazesense-web
+                  description: Plans drone surveys, maps pasture health via NDVI, and counts sheep with AI
+                  testbed: "1"
+                  node_type: Edge
+                  developer: AEDICOM RESEARCH LTD
+                  use_case: A farmer defines a field, runs a coordinated drone flight, and receives NDVI maps
+                  project: GRAZESENSE
+                  github_link: https://github.com/agrarian-application-repository/grazesense-web/pkgs/container/grazesense-web
+                  image: ghcr.io/agrarian-application-repository/grazesense-web
+                  version: latest
               examples:
                 success:
-                  summary: Example response
+                  summary: Example response with project names
                   value:
                     - name: grapedisease
                       description: A set of interconnected tools for semi-automated drone-based disease detection in vineyards
@@ -358,8 +389,8 @@ components:
           example: Enables routine scanning of large vineyards to reduce manual labour
         project:
           type: string
-          description: Project name associated with the application (from app_info.json)
-          example: GRAZESENSE
+          description: Project name associated with the application (from app_info.json). Empty string if not specified.
+          example: VINEA-DRONE
         github_link:
           type: string
           format: uri
@@ -373,6 +404,17 @@ components:
           type: string
           description: Image version/tag
           example: latest
+      example:
+        name: grapedisease
+        description: A set of interconnected tools for semi-automated drone-based disease detection in vineyards
+        testbed: "2"
+        node_type: Satellite
+        developer: KyberKore P.C.
+        use_case: Enables routine scanning of large vineyards to reduce manual labour
+        project: VINEA-DRONE
+        github_link: https://github.com/agrarian-application-repository/grapedisease/pkgs/container/grapedisease
+        image: ghcr.io/agrarian-application-repository/grapedisease
+        version: latest
 
     Node:
       type: object
@@ -554,6 +596,7 @@ components:
                 - app
               msg: Field required
               input: null
+
 
 
 

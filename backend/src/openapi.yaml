@@ -62,7 +62,7 @@ paths:
                       node_type: Satellite
                       developer: KyberKore P.C.
                       use_case: Enables routine scanning of large vineyards to reduce manual labour
-                      project: ""
+                      project: VINEA-DRONE
                       github_link: https://github.com/agrarian-application-repository/grapedisease/pkgs/container/grapedisease
                       image: ghcr.io/agrarian-application-repository/grapedisease
                       version: latest
@@ -72,7 +72,7 @@ paths:
                       node_type: Edge (Jetson Orin)
                       developer: PLAIXUS PRIVATE COMPANY (PLX)
                       use_case: Real-time lameness detection validated on a sheep farm
-                      project: ""
+                      project: ELDER
                       github_link: https://github.com/agrarian-application-repository/elder-app/pkgs/container/elder-app
                       image: ghcr.io/agrarian-application-repository/elder-app
                       version: latest
@@ -554,5 +554,6 @@ components:
                 - app
               msg: Field required
               input: null
+
 
 
